@@ -1,79 +1,116 @@
 <!doctype html>
 <html lang="zh-Hant">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>會員綁定</title>
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <style>
-      body { font-family: system-ui, -apple-system, "Noto Sans TC", sans-serif; padding: 16px; }
-      .card { max-width: 520px; margin: 0 auto; padding: 16px; border: 1px solid #eee; border-radius: 12px; }
-      button { padding: 10px 16px; border-radius: 10px; border: none; background: #06c755; color: #fff; font-weight: 700; }
-      pre { background: #f8f9fa; padding: 12px; border-radius: 8px; overflow: auto; }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <h2>會員綁定</h2>
-      <p id="hint">準備中…</p>
-      <div id="prof" style="display:none">
-        <p>您好，<span id="name"></span>！</p>
-        <pre id="debug"></pre>
-        <button id="bind">綁定到會員系統</button>
-      </div>
-    </div>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>綁定中…</title>
+  <meta name="theme-color" content="#06c755" />
+  <style>
+    html,body{height:100%}body{margin:0;font-family:ui-sans-serif,-apple-system,'Noto Sans TC',Arial;padding:0;background:#fff;display:flex;align-items:center;justify-content:center}
+    .wrap{max-width:520px;width:100%;padding:28px 20px;text-align:center;color:#1f2937}
+    .ring{width:44px;height:44px;border-radius:50%;border:4px solid rgba(6,199,85,.25);border-top-color:#06c755;animation:spin .8s linear infinite;margin:0 auto 14px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .muted{color:#6b7280;font-size:14px}
+    .err{color:#b91c1c}
+    .btn{margin-top:14px;display:inline-block;background:#06c755;color:#fff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:700}
+    .small{color:#9ca3af;font-size:12px;margin-top:10px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="ring"></div>
+    <div id="title">綁定中，請稍候…</div>
+    <div id="msg" class="muted">此視窗會在成功後自動關閉</div>
+    <div id="fallback" class="small" style="display:none"></div>
+  </div>
 
-    <script>
-      const LIFF_ID = "2008228314-bRlag6ZR";
-      const GAS_EXEC = "https://script.google.com/macros/s/AKfycbz6HmtsSr1Zz00_itkzh4T5zjhOIKxnwjHzxvoGPmeRYqNmyooVLb6HiRIRrTQWoutN/exec";
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script>
+    // ======= 需設定：LIFF_ID 與 GAS /exec URL（也支援以 ?liffId=...&exec=... 覆蓋） =======
+    let LIFF_ID = "2008228314-bRlag6ZR";
+    let GAS_EXEC = "https://script.google.com/macros/s/AKfycbz6HmtsSr1Zz00_itkzh4T5zjhOIKxnwjHzxvoGPmeRYqNmyooVLb6HiRIRrTQWoutN/exec";
 
-      const qs = (s)=>document.querySelector(s);
+    const u = new URL(location.href);
+    if (u.searchParams.get('liffId')) LIFF_ID = u.searchParams.get('liffId');
+    if (u.searchParams.get('exec')) GAS_EXEC = u.searchParams.get('exec');
 
-      (async () => {
-        try {
-          await liff.init({ liffId: LIFF_ID });
-          if (!liff.isLoggedIn()) { liff.login(); return; }
+    const $ = (s)=>document.querySelector(s);
+    const deepLink = ()=> 'https://liff.line.me/' + encodeURIComponent(LIFF_ID) + location.search;
 
-          // 取得 Profile（在 LINE App 內最穩）
-          let profile = null, idToken = null, decoded = null;
-          idToken = liff.getIDToken(); // 用於伺服器驗證
-          try { profile = await liff.getProfile(); } catch(e) {}
-          try { decoded = liff.getDecodedIDToken(); } catch(e) {}
-
-          qs('#hint').style.display = 'none';
-          qs('#prof').style.display = 'block';
-          qs('#name').textContent = profile?.displayName || decoded?.name || '用戶';
-          qs('#debug').textContent = JSON.stringify({
-            from: 'LIFF',
-            inClient: liff.isInClient(),
-            gotProfile: !!profile,
-            userId_via_profile: profile?.userId || null,
-            decoded_sub: decoded?.sub || null
-          }, null, 2);
-
-          qs('#bind').onclick = async () => {
-            try {
-              // 用 x-www-form-urlencoded 避免 CORS preflight
-              const params = new URLSearchParams();
-              params.set('bind', '1');
-              params.set('id_token', idToken || '');
-              const res = await fetch(GAS_EXEC + '?bind=1', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: params.toString()
-              });
-              const txt = await res.text();
-              alert(txt); // 期望：bind ok: Uxxxxxxxxxxxx
-            } catch (err) {
-              alert('綁定失敗：' + err);
-            }
-          };
-        } catch (err) {
-          qs('#hint').textContent = '初始化失敗：' + err;
+    async function bindAndClose(idToken){
+      try{
+        const params = new URLSearchParams();
+        params.set('bind','1');
+        params.set('id_token', idToken || '');
+        const res = await fetch(GAS_EXEC + '?bind=1', {
+          method:'POST',
+          headers:{'Content-Type':'application/x-www-form-urlencoded'},
+          body: params.toString()
+        });
+        const text = await res.text();
+        // 成功格式：bind ok: Uxxxxxxxxx
+        if (/bind ok:\s*U/i.test(text)) {
+          // 直接關窗回到聊天
+          if (liff.isInClient()) {
+            liff.closeWindow();
+          } else {
+            // 外部瀏覽器：導回聊天（用深連結打開 LINE）
+            location.href = deepLink();
+          }
+        } else {
+          $('#title').textContent = '綁定未成功';
+          $('#msg').innerHTML = '<span class="err">' + (text || '請稍後再試') + '</span>';
+          $('#fallback').style.display = 'block';
+          $('#fallback').innerHTML = '仍可手動回到聊天視窗。';
         }
-      })();
-    </script>
-  </body>
+      }catch(err){
+        $('#title').textContent = '網路異常';
+        $('#msg').innerHTML = '<span class="err">' + String(err) + '</span>';
+        $('#fallback').style.display = 'block';
+        $('#fallback').innerHTML = '請稍後再試，或 <a class="btn" href="'+deepLink()+'">在 LINE 開啟</a>';
+      }
+    }
+
+    (async ()=>{
+      try{
+        if (!LIFF_ID || !LIFF_ID.includes('-')){
+          $('#title').textContent = '設定錯誤';
+          $('#msg').innerHTML = '<span class="err">LIFF_ID 未設定或格式錯誤</span>';
+          return;
+        }
+        if (!GAS_EXEC || !GAS_EXEC.includes('/exec')){
+          $('#title').textContent = '設定錯誤';
+          $('#msg').innerHTML = '<span class="err">GAS /exec URL 未設定</span>';
+          return;
+        }
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()){
+          // 要求登入後回到同頁，繼續綁定
+          return liff.login({ redirectUri: location.href });
+        }
+
+        const token = (function(){ try{return liff.getIDToken()}catch(e){return null} })();
+        if (!token){
+          // 在少數外部瀏覽器可能拿不到，改導回 LINE 中開啟
+          if (!liff.isInClient()){
+            location.href = deepLink();
+            return;
+          }
+          $('#title').textContent = '無法取得授權資訊';
+          $('#msg').innerHTML = '<span class="err">請關閉並重新由 LINE 選單開啟</span>';
+          return;
+        }
+
+        // 送到 GAS 綁定並關窗
+        bindAndClose(token);
+      }catch(err){
+        $('#title').textContent = '初始化失敗';
+        $('#msg').innerHTML = '<span class="err">' + String(err) + '</span>';
+        $('#fallback').style.display = 'block';
+        $('#fallback').innerHTML = '請稍後再試，或 <a class="btn" href="'+deepLink()+'">在 LINE 開啟</a>';
+      }
+    })();
+  </script>
+</body>
 </html>
-
-
