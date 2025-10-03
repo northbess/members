@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>會員綁定</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+      body { font-family: system-ui, -apple-system, "Noto Sans TC", sans-serif; padding: 16px; }
+      .card { max-width: 520px; margin: 0 auto; padding: 16px; border: 1px solid #eee; border-radius: 12px; }
+      button { padding: 10px 16px; border-radius: 10px; border: none; background: #06c755; color: #fff; font-weight: 700; }
+      pre { background: #f8f9fa; padding: 12px; border-radius: 8px; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h2>會員綁定</h2>
+      <p id="hint">準備中…</p>
+      <div id="prof" style="display:none">
+        <p>您好，<span id="name"></span>！</p>
+        <pre id="debug"></pre>
+        <button id="bind">綁定到會員系統</button>
+      </div>
+    </div>
+
+    <script>
+      const LIFF_ID = "2008228314";
+      const GAS_EXEC = "https://script.google.com/macros/s/AKfycbz6HmtsSr1Zz00_itkzh4T5zjhOIKxnwjHzxvoGPmeRYqNmyooVLb6HiRIRrTQWoutN/exec";
+
+      const qs = (s)=>document.querySelector(s);
+
+      (async () => {
+        try {
+          await liff.init({ liffId: LIFF_ID });
+          if (!liff.isLoggedIn()) { liff.login(); return; }
+
+          // 取得 Profile（在 LINE App 內最穩）
+          let profile = null, idToken = null, decoded = null;
+          idToken = liff.getIDToken(); // 用於伺服器驗證
+          try { profile = await liff.getProfile(); } catch(e) {}
+          try { decoded = liff.getDecodedIDToken(); } catch(e) {}
+
+          qs('#hint').style.display = 'none';
+          qs('#prof').style.display = 'block';
+          qs('#name').textContent = profile?.displayName || decoded?.name || '用戶';
+          qs('#debug').textContent = JSON.stringify({
+            from: 'LIFF',
+            inClient: liff.isInClient(),
+            gotProfile: !!profile,
+            userId_via_profile: profile?.userId || null,
+            decoded_sub: decoded?.sub || null
+          }, null, 2);
+
+          qs('#bind').onclick = async () => {
+            try {
+              // 用 x-www-form-urlencoded 避免 CORS preflight
+              const params = new URLSearchParams();
+              params.set('bind', '1');
+              params.set('id_token', idToken || '');
+              const res = await fetch(GAS_EXEC + '?bind=1', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+              });
+              const txt = await res.text();
+              alert(txt); // 期望：bind ok: Uxxxxxxxxxxxx
+            } catch (err) {
+              alert('綁定失敗：' + err);
+            }
+          };
+        } catch (err) {
+          qs('#hint').textContent = '初始化失敗：' + err;
+        }
+      })();
+    </script>
+  </body>
+</html>
