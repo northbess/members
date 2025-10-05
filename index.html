@@ -26,13 +26,27 @@
 
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
-    // ======= 需設定：LIFF_ID 與 GAS /exec URL（也支援以 ?liffId=...&exec=... 覆蓋） =======
-    let LIFF_ID = "2008228314-bRlag6ZR";
+    // ======= 必填：LIFF_ID 與 GAS /exec URL（可用 ?liffId=...&exec=... 覆蓋） =======
+    let LIFF_ID  = "2008228314-bRlag6ZR";
     let GAS_EXEC = "https://script.google.com/macros/s/AKfycbz6HmtsSr1Zz00_itkzh4T5zjhOIKxnwjHzxvoGPmeRYqNmyooVLb6HiRIRrTQWoutN/exec";
 
-    const u = new URL(location.href);
-    if (u.searchParams.get('liffId')) LIFF_ID = u.searchParams.get('liffId');
-    if (u.searchParams.get('exec')) GAS_EXEC = u.searchParams.get('exec');
+    // ======= 新增：推送選項的預設值（可被 URL 覆蓋） =======
+    // push: 'both' | 'info' | 'cmd' | 'none'
+    // showuid: '1'（回傳 userId）或 '0'（不回傳）
+    // tier: '特優會員' / '研究會員' / '師資'（可不帶）
+    let DEFAULT_PUSH    = 'both';
+    let DEFAULT_SHOWUID = '1';
+    let DEFAULT_TIER    = ''; // 例如 '特優會員'；不確定就留空
+
+    const u  = new URL(location.href);
+    const qp = u.searchParams;
+    if (qp.get('liffId')) LIFF_ID = qp.get('liffId');
+    if (qp.get('exec'))   GAS_EXEC = qp.get('exec');
+
+    // 讀取（或使用預設）
+    const PUSH    = (qp.get('push')    || DEFAULT_PUSH).toLowerCase();
+    const SHOWUID = (qp.get('showuid') || DEFAULT_SHOWUID);
+    const TIER    = (qp.get('tier')    || DEFAULT_TIER);
 
     const $ = (s)=>document.querySelector(s);
     const deepLink = ()=> 'https://liff.line.me/' + encodeURIComponent(LIFF_ID) + location.search;
@@ -42,21 +56,20 @@
         const params = new URLSearchParams();
         params.set('bind','1');
         params.set('id_token', idToken || '');
+        params.set('push', PUSH);            // ← 新增：推播內容
+        params.set('showuid', SHOWUID);      // ← 新增：是否同時回 userId
+        if (TIER) params.set('tier', TIER);  // ← 新增：若已知等級一起寫入
+
         const res = await fetch(GAS_EXEC + '?bind=1', {
           method:'POST',
           headers:{'Content-Type':'application/x-www-form-urlencoded'},
           body: params.toString()
         });
         const text = await res.text();
-        // 成功格式：bind ok: Uxxxxxxxxx
+        // 後端成功會回：bind ok: Uxxxxxxxx
         if (/bind ok:\s*U/i.test(text)) {
-          // 直接關窗回到聊天
-          if (liff.isInClient()) {
-            liff.closeWindow();
-          } else {
-            // 外部瀏覽器：導回聊天（用深連結打開 LINE）
-            location.href = deepLink();
-          }
+          if (liff.isInClient()) liff.closeWindow();
+          else location.href = deepLink();
         } else {
           $('#title').textContent = '綁定未成功';
           $('#msg').innerHTML = '<span class="err">' + (text || '請稍後再試') + '</span>';
@@ -83,26 +96,19 @@
           $('#msg').innerHTML = '<span class="err">GAS /exec URL 未設定</span>';
           return;
         }
-        await liff.init({ liffId: LIFF_ID });
 
-        if (!liff.isLoggedIn()){
-          // 要求登入後回到同頁，繼續綁定
-          return liff.login({ redirectUri: location.href });
-        }
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) return liff.login({ redirectUri: location.href });
 
         const token = (function(){ try{return liff.getIDToken()}catch(e){return null} })();
         if (!token){
-          // 在少數外部瀏覽器可能拿不到，改導回 LINE 中開啟
-          if (!liff.isInClient()){
-            location.href = deepLink();
-            return;
-          }
+          if (!liff.isInClient()){ location.href = deepLink(); return; }
           $('#title').textContent = '無法取得授權資訊';
           $('#msg').innerHTML = '<span class="err">請關閉並重新由 LINE 選單開啟</span>';
           return;
         }
 
-        // 送到 GAS 綁定並關窗
+        // 送到 GAS 綁定並根據設定推送：userId / 會員資訊 / 指令一覽
         bindAndClose(token);
       }catch(err){
         $('#title').textContent = '初始化失敗';
@@ -114,4 +120,3 @@
   </script>
 </body>
 </html>
-
