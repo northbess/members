@@ -1,14 +1,25 @@
 <!doctype html>
-<html>
+<html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
   <title>太乙堂｜會員綁定</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, "PingFang TC", "Heiti TC", "Microsoft JhengHei", sans-serif; margin: 16px; }
+    h2 { margin: 0 0 12px; }
+    .row { margin: 12px 0; }
+    select, button { font-size: 16px; padding: 8px 12px; border-radius: 999px; border: 1px solid #ddd; background: #f8fafc; }
+    button { margin-right: 8px; background: #eef2ff; border-color: #c7d2fe; }
+    button.primary { background: #dbeafe; border-color: #bfdbfe; }
+    #status { margin-top: 10px; color: #334155; white-space: pre-wrap; word-break: break-word; }
+    .muted { color: #64748b; font-size: 13px; }
+  </style>
 </head>
 <body>
-  <h3>會員綁定</h3>
-  <div>
+  <h2>會員綁定</h2>
+
+  <div class="row">
     <label>等級：
       <select id="tier">
         <option value="特優會員">特優會員</option>
@@ -17,58 +28,96 @@
       </select>
     </label>
   </div>
-  <button id="bindBtn">綁定</button>
-  <button id="meBtn">查詢</button>
-  <button id="unbindBtn">解除綁定</button>
+
+  <div class="row">
+    <button id="bindBtn" class="primary">綁定</button>
+    <button id="meBtn">查詢</button>
+    <button id="unbindBtn">解除綁定</button>
+  </div>
+
+  <div id="status" class="row muted">初始化中…</div>
 
 <script>
-  // 替換成你的設定
-  var LIFF_ID = "2008228314-bRlag6ZR";
-  var ADMIN_KEY = "taito2025abc123";
-  var API_BASE = "https://script.google.com/macros/s/AKfycbz6HmtsSr1Zz00_itkzh4T5zjhOIKxnwjHzxvoGPmeRYqNmyooVLb6HiRIRrTQWoutN/exec";
+/** ⬇⬇⬇ 只需要改這三個設定 ⬇⬇⬇ **/
+const CONFIG = {
+  LIFF_ID:  "2008228314-bRlag6ZR",                         // 你的 LIFF ID
+  API_BASE: "https://script.google.com/macros/s/【你的部署ID】/exec", // 你的 GAS Web App /exec
+  ADMIN_KEY:"【與 GAS Script Properties 完全一致的 ADMIN_KEY】"
+};
+/** ⬆⬆⬆ 只需要改這三個設定 ⬆⬆⬆ **/
 
-  function qs(o){
-    var s=[], k;
-    for(k in o){ if(o.hasOwnProperty(k) && o[k]!==undefined)
-      s.push(encodeURIComponent(k)+"="+encodeURIComponent(o[k]));
+function qs(o){
+  const s=[]; for(const k in o){ if(Object.prototype.hasOwnProperty.call(o,k) && o[k]!=null) s.push(encodeURIComponent(k)+"="+encodeURIComponent(o[k])); }
+  return s.join("&");
+}
+function get(url){ return fetch(url,{method:"GET"}).then(r=>r.json()); }
+function setStatus(msg, obj) {
+  const box = document.getElementById("status");
+  box.classList.remove("muted");
+  box.textContent = (typeof msg==="string"?msg:JSON.stringify(msg,null,2)) + (obj?("\n"+JSON.stringify(obj,null,2)):"");
+}
+
+(async function main(){
+  try {
+    // 1) 初始化 LIFF
+    await liff.init({ liffId: CONFIG.LIFF_ID });
+
+    // 2) 在外部瀏覽器時，先 login
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+
+    // 3) 取得 userId / displayName（先用 getProfile，取不到再用 decoded token）
+    let userId="", displayName="";
+    try {
+      const prof = await liff.getProfile();
+      userId = prof.userId || "";
+      displayName = prof.displayName || "";
+    } catch(_) {}
+    if (!userId) {
+      const token = liff.getDecodedIDToken();
+      userId = (token && token.sub) || "";
+      displayName = displayName || (token && token.name) || "";
     }
-    return s.join("&");
+    if (!userId) { setStatus("取不到 userId，請在 LINE 內開啟此頁。"); return; }
+
+    setStatus(`已登入：${displayName || ""}\nuserId：${userId.slice(0,6)}…`);
+
+    // 4) 綁定事件
+    const tierSel = document.getElementById("tier");
+
+    document.getElementById("bindBtn").onclick = async function(){
+      const url = CONFIG.API_BASE + "?" + qs({ fn:"bind", key:CONFIG.ADMIN_KEY, userId, displayName, tierKey: tierSel.value });
+      try {
+        const j = await get(url);
+        if (j.ok) setStatus(`✅ 綁定成功：${tierSel.value}`, j);
+        else setStatus(`❌ 綁定失敗：${j.error || "unknown"}`, j);
+      } catch (err) { setStatus("❌ 綁定錯誤："+err); }
+    };
+
+    document.getElementById("meBtn").onclick = async function(){
+      const url = CONFIG.API_BASE + "?" + qs({ fn:"me", key:CONFIG.ADMIN_KEY, userId });
+      try {
+        const j = await get(url);
+        if (j.ok) setStatus(`目前等級：${j.tierKey || "DEFAULT"}`, j);
+        else setStatus(`查詢失敗：${j.error || "unknown"}`, j);
+      } catch (err) { setStatus("查詢錯誤："+err); }
+    };
+
+    document.getElementById("unbindBtn").onclick = async function(){
+      const url = CONFIG.API_BASE + "?" + qs({ fn:"unbind", key:CONFIG.ADMIN_KEY, userId });
+      try {
+        const j = await get(url);
+        if (j.ok) setStatus("已解除綁定", j);
+        else setStatus(`解除失敗：${j.error || "unknown"}`, j);
+      } catch (err) { setStatus("解除錯誤："+err); }
+    };
+
+    // 5) 進頁就先查一次
+    document.getElementById("meBtn").click();
+
+  } catch (e) {
+    setStatus("LIFF 初始化失敗："+ e);
   }
-
-  function get(url){ return fetch(url, { method: "GET" }).then(function(r){return r.json()}); }
-
-  liff.init({ liffId: LIFF_ID }).then(function(){
-    return liff.getProfile();
-  }).then(function(profile){
-    var userId = profile.userId;
-    var displayName = profile.displayName || "";
-
-    document.getElementById("bindBtn").onclick = function(){
-      var tierKey = document.getElementById("tier").value;
-      var url = API_BASE + "?" + qs({
-        fn:"bind", key:ADMIN_KEY, userId:userId, displayName:displayName, tierKey:tierKey
-      });
-      get(url).then(function(j){
-        alert(j.ok ? "綁定成功：" + tierKey : "綁定失敗：" + j.error);
-      }).catch(function(err){ alert("綁定錯誤：" + err); });
-    };
-
-    document.getElementById("meBtn").onclick = function(){
-      var url = API_BASE + "?" + qs({ fn:"me", key:ADMIN_KEY, userId:userId });
-      get(url).then(function(j){
-        alert(j.ok ? ("目前等級：" + j.tierKey) : ("查詢失敗：" + j.error));
-      }).catch(function(err){ alert("查詢錯誤：" + err); });
-    };
-
-    document.getElementById("unbindBtn").onclick = function(){
-      var url = API_BASE + "?" + qs({ fn:"unbind", key:ADMIN_KEY, userId:userId });
-      get(url).then(function(j){
-        alert(j.ok ? "已解除綁定" : ("解除失敗：" + j.error));
-      }).catch(function(err){ alert("解除錯誤：" + err); });
-    };
-  }).catch(function(e){
-    alert("LIFF 初始化失敗：" + e);
-  });
+})();
 </script>
 </body>
 </html>
