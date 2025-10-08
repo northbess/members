@@ -2,122 +2,115 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <title>太乙堂｜會員綁定</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>綁定中…</title>
+  <meta name="theme-color" content="#06c755" />
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, "PingFang TC", "Heiti TC", "Microsoft JhengHei", sans-serif; margin: 16px; }
-    h2 { margin: 0 0 12px; }
-    .row { margin: 12px 0; }
-    select, button { font-size: 16px; padding: 8px 12px; border-radius: 999px; border: 1px solid #ddd; background: #f8fafc; }
-    button { margin-right: 8px; background: #eef2ff; border-color: #c7d2fe; }
-    button.primary { background: #dbeafe; border-color: #bfdbfe; }
-    #status { margin-top: 10px; color: #334155; white-space: pre-wrap; word-break: break-word; }
-    .muted { color: #64748b; font-size: 13px; }
+    html,body{height:100%}body{margin:0;font-family:ui-sans-serif,-apple-system,'Noto Sans TC',Arial;padding:0;background:#fff;display:flex;align-items:center;justify-content:center}
+    .wrap{max-width:520px;width:100%;padding:28px 20px;text-align:center;color:#1f2937}
+    .ring{width:44px;height:44px;border-radius:50%;border:4px solid rgba(6,199,85,.25);border-top-color:#06c755;animation:spin .8s linear infinite;margin:0 auto 14px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .muted{color:#6b7280;font-size:14px}
+    .err{color:#b91c1c}
+    .btn{margin-top:14px;display:inline-block;background:#06c755;color:#fff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:700}
+    .small{color:#9ca3af;font-size:12px;margin-top:10px}
   </style>
 </head>
 <body>
-  <h2>會員綁定</h2>
-
-  <div class="row">
-    <label>等級：
-      <select id="tier">
-        <option value="特優會員">特優會員</option>
-        <option value="研究會員">研究會員</option>
-        <option value="師資">師資</option>
-      </select>
-    </label>
+  <div class="wrap">
+    <div class="ring"></div>
+    <div id="title">綁定中，請稍候…</div>
+    <div id="msg" class="muted">此視窗會在成功後自動關閉</div>
+    <div id="fallback" class="small" style="display:none"></div>
   </div>
 
-  <div class="row">
-    <button id="bindBtn" class="primary">綁定</button>
-    <button id="meBtn">查詢</button>
-    <button id="unbindBtn">解除綁定</button>
-  </div>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script>
+    // ======= 需設定：LIFF_ID 與 GAS /exec URL（也支援以 ?liffId=...&exec=... 覆蓋） =======
+    let LIFF_ID = "2008228314-bRlag6ZR";
+    let GAS_EXEC = "https://script.google.com/macros/s/AKfycbz6HmtsSr1Zz00_itkzh4T5zjhOIKxnwjHzxvoGPmeRYqNmyooVLb6HiRIRrTQWoutN/exec";
 
-  <div id="status" class="row muted">初始化中…</div>
+    const u = new URL(location.href);
+    if (u.searchParams.get('liffId')) LIFF_ID = u.searchParams.get('liffId');
+    if (u.searchParams.get('exec')) GAS_EXEC = u.searchParams.get('exec');
 
-<script>
-/** ⬇⬇⬇ 只需要改這三個設定 ⬇⬇⬇ **/
-const CONFIG = {
-  LIFF_ID:  "2008228314-bRlag6ZR",                         // 你的 LIFF ID
-  API_BASE: "https://script.google.com/macros/s/【你的部署ID】/exec", // 你的 GAS Web App /exec
-  ADMIN_KEY:"【與 GAS Script Properties 完全一致的 ADMIN_KEY】"
-};
-/** ⬆⬆⬆ 只需要改這三個設定 ⬆⬆⬆ **/
+    const $ = (s)=>document.querySelector(s);
+    const deepLink = ()=> 'https://liff.line.me/' + encodeURIComponent(LIFF_ID) + location.search;
 
-function qs(o){
-  const s=[]; for(const k in o){ if(Object.prototype.hasOwnProperty.call(o,k) && o[k]!=null) s.push(encodeURIComponent(k)+"="+encodeURIComponent(o[k])); }
-  return s.join("&");
-}
-function get(url){ return fetch(url,{method:"GET"}).then(r=>r.json()); }
-function setStatus(msg, obj) {
-  const box = document.getElementById("status");
-  box.classList.remove("muted");
-  box.textContent = (typeof msg==="string"?msg:JSON.stringify(msg,null,2)) + (obj?("\n"+JSON.stringify(obj,null,2)):"");
-}
-
-(async function main(){
-  try {
-    // 1) 初始化 LIFF
-    await liff.init({ liffId: CONFIG.LIFF_ID });
-
-    // 2) 在外部瀏覽器時，先 login
-    if (!liff.isLoggedIn()) { liff.login(); return; }
-
-    // 3) 取得 userId / displayName（先用 getProfile，取不到再用 decoded token）
-    let userId="", displayName="";
-    try {
-      const prof = await liff.getProfile();
-      userId = prof.userId || "";
-      displayName = prof.displayName || "";
-    } catch(_) {}
-    if (!userId) {
-      const token = liff.getDecodedIDToken();
-      userId = (token && token.sub) || "";
-      displayName = displayName || (token && token.name) || "";
+    async function bindAndClose(idToken){
+      try{
+        const params = new URLSearchParams();
+        params.set('bind','1');
+        params.set('id_token', idToken || '');
+        const res = await fetch(GAS_EXEC + '?bind=1', {
+          method:'POST',
+          headers:{'Content-Type':'application/x-www-form-urlencoded'},
+          body: params.toString()
+        });
+        const text = await res.text();
+        // 成功格式：bind ok: Uxxxxxxxxx
+        if (/bind ok:\s*U/i.test(text)) {
+          // 直接關窗回到聊天
+          if (liff.isInClient()) {
+            liff.closeWindow();
+          } else {
+            // 外部瀏覽器：導回聊天（用深連結打開 LINE）
+            location.href = deepLink();
+          }
+        } else {
+          $('#title').textContent = '綁定未成功';
+          $('#msg').innerHTML = '<span class="err">' + (text || '請稍後再試') + '</span>';
+          $('#fallback').style.display = 'block';
+          $('#fallback').innerHTML = '仍可手動回到聊天視窗。';
+        }
+      }catch(err){
+        $('#title').textContent = '網路異常';
+        $('#msg').innerHTML = '<span class="err">' + String(err) + '</span>';
+        $('#fallback').style.display = 'block';
+        $('#fallback').innerHTML = '請稍後再試，或 <a class="btn" href="'+deepLink()+'">在 LINE 開啟</a>';
+      }
     }
-    if (!userId) { setStatus("取不到 userId，請在 LINE 內開啟此頁。"); return; }
 
-    setStatus(`已登入：${displayName || ""}\nuserId：${userId.slice(0,6)}…`);
+    (async ()=>{
+      try{
+        if (!LIFF_ID || !LIFF_ID.includes('-')){
+          $('#title').textContent = '設定錯誤';
+          $('#msg').innerHTML = '<span class="err">LIFF_ID 未設定或格式錯誤</span>';
+          return;
+        }
+        if (!GAS_EXEC || !GAS_EXEC.includes('/exec')){
+          $('#title').textContent = '設定錯誤';
+          $('#msg').innerHTML = '<span class="err">GAS /exec URL 未設定</span>';
+          return;
+        }
+        await liff.init({ liffId: LIFF_ID });
 
-    // 4) 綁定事件
-    const tierSel = document.getElementById("tier");
+        if (!liff.isLoggedIn()){
+          // 要求登入後回到同頁，繼續綁定
+          return liff.login({ redirectUri: location.href });
+        }
 
-    document.getElementById("bindBtn").onclick = async function(){
-      const url = CONFIG.API_BASE + "?" + qs({ fn:"bind", key:CONFIG.ADMIN_KEY, userId, displayName, tierKey: tierSel.value });
-      try {
-        const j = await get(url);
-        if (j.ok) setStatus(`✅ 綁定成功：${tierSel.value}`, j);
-        else setStatus(`❌ 綁定失敗：${j.error || "unknown"}`, j);
-      } catch (err) { setStatus("❌ 綁定錯誤："+err); }
-    };
+        const token = (function(){ try{return liff.getIDToken()}catch(e){return null} })();
+        if (!token){
+          // 在少數外部瀏覽器可能拿不到，改導回 LINE 中開啟
+          if (!liff.isInClient()){
+            location.href = deepLink();
+            return;
+          }
+          $('#title').textContent = '無法取得授權資訊';
+          $('#msg').innerHTML = '<span class="err">請關閉並重新由 LINE 選單開啟</span>';
+          return;
+        }
 
-    document.getElementById("meBtn").onclick = async function(){
-      const url = CONFIG.API_BASE + "?" + qs({ fn:"me", key:CONFIG.ADMIN_KEY, userId });
-      try {
-        const j = await get(url);
-        if (j.ok) setStatus(`目前等級：${j.tierKey || "DEFAULT"}`, j);
-        else setStatus(`查詢失敗：${j.error || "unknown"}`, j);
-      } catch (err) { setStatus("查詢錯誤："+err); }
-    };
-
-    document.getElementById("unbindBtn").onclick = async function(){
-      const url = CONFIG.API_BASE + "?" + qs({ fn:"unbind", key:CONFIG.ADMIN_KEY, userId });
-      try {
-        const j = await get(url);
-        if (j.ok) setStatus("已解除綁定", j);
-        else setStatus(`解除失敗：${j.error || "unknown"}`, j);
-      } catch (err) { setStatus("解除錯誤："+err); }
-    };
-
-    // 5) 進頁就先查一次
-    document.getElementById("meBtn").click();
-
-  } catch (e) {
-    setStatus("LIFF 初始化失敗："+ e);
-  }
-})();
-</script>
+        // 送到 GAS 綁定並關窗
+        bindAndClose(token);
+      }catch(err){
+        $('#title').textContent = '初始化失敗';
+        $('#msg').innerHTML = '<span class="err">' + String(err) + '</span>';
+        $('#fallback').style.display = 'block';
+        $('#fallback').innerHTML = '請稍後再試，或 <a class="btn" href="'+deepLink()+'">在 LINE 開啟</a>';
+      }
+    })();
+  </script>
 </body>
 </html>
