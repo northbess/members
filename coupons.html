@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>我的優惠券</title>
+  <meta name="theme-color" content="#06c755" />
+  <style>
+    html,body{height:100%}body{margin:0;font-family:ui-sans-serif,-apple-system,'Noto Sans TC',Arial;background:#fff}
+    .container{max-width:680px;margin:0 auto;padding:16px}
+    .title{font-weight:800;font-size:20px;margin:6px 0 12px}
+    .card{border:1px solid #e5e7eb;border-radius:14px;padding:14px;margin:10px 0}
+    .card h3{margin:0 0 6px;font-size:16px}
+    .muted{color:#6b7280;font-size:13px}
+    .btn{display:inline-block;background:#06c755;color:#fff;font-weight:700;border-radius:10px;padding:10px 14px;text-decoration:none;margin-top:10px}
+    .tag{display:inline-block;background:#eefbf4;color:#059669;border-radius:999px;padding:2px 8px;font-size:12px;margin-left:6px}
+    .empty{padding:40px 16px;text-align:center;color:#9ca3af}
+    .topbar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid #f3f4f6}
+    .brand{font-weight:800}
+    .spacer{flex:1}
+    .filter{font-size:13px;color:#6b7280}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">太乙堂｜我的優惠券</div>
+    <div class="spacer"></div>
+    <div class="filter" id="welcome"></div>
+  </div>
+
+  <div class="container">
+    <div class="title">可使用的優惠券</div>
+    <div id="list"></div>
+    <div id="empty" class="empty" style="display:none">目前沒有可顯示的優惠券</div>
+  </div>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script>
+    // ① 你的 LIFF ID（也可用 ?liffId=... 覆蓋）
+    let LIFF_ID = "2008228314-bRlag6ZR";
+    const u = new URL(location.href);
+    if (u.searchParams.get('liffId')) LIFF_ID = u.searchParams.get('liffId');
+
+    // ② 這裡維護你的券清單（分享網址貼進 url）
+    //   title：券名；desc：簡述；url：LINE 後台「分享網址」；until：到期日(YYYY-MM-DD，可省略)
+    const COUPONS = [
+      // 範例：
+      // { title: "10月來店禮 50 元折抵", desc: "全館可用，滿 200 可折", url: "https://line.me/R/...", until: "2025-10-31" },
+      // { title: "新朋友見面禮 100 元", desc: "限首次使用", url: "https://line.me/R/..." }
+    ];
+
+    function fmtDate(d){ return d.toISOString().slice(0,10); }
+
+    function render(list){
+      const $list = document.getElementById('list');
+      const $empty = document.getElementById('empty');
+      $list.innerHTML = '';
+      if (!list.length){
+        $empty.style.display = 'block';
+        return;
+      }
+      $empty.style.display = 'none';
+
+      list.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const untilTag = c.until ? `<span class="tag">至 ${c.until}</span>` : '';
+        card.innerHTML = `
+          <h3>${c.title}${untilTag}</h3>
+          <div class="muted">${c.desc ? c.desc : ''}</div>
+          <a class="btn" href="#">立即查看</a>
+        `;
+        const btn = card.querySelector('.btn');
+        btn.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          // 在 LINE 內就內開；外部瀏覽器就開新分頁
+          try {
+            if (window.liff && liff.isInClient()) {
+              liff.openWindow({ url: c.url, external: false });
+            } else {
+              window.open(c.url, '_blank', 'noopener,noreferrer');
+            }
+          } catch (_){
+            window.location.href = c.url;
+          }
+        });
+        $list.appendChild(card);
+      });
+    }
+
+    (async () => {
+      // 顯示使用者稱呼（若能拿到 profile）
+      const $welcome = document.getElementById('welcome');
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        if (liff.isLoggedIn()){
+          try {
+            const p = await liff.getProfile();
+            if (p && p.displayName) $welcome.textContent = `嗨，${p.displayName}`;
+          } catch(_){}
+        } else {
+          // 不強迫登入：純展示券清單也能看
+        }
+      } catch(_){ /* 忽略 LIFF 初始化錯誤，仍可展示清單 */ }
+
+      // 預設只顯示「尚未過期」的券；沒有 until 的視為長效
+      const today = fmtDate(new Date());
+      const valid = COUPONS.filter(c => !c.until || c.until >= today);
+      render(valid);
+    })();
+  </script>
+</body>
+</html>
