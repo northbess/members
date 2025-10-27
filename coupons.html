@@ -6,107 +6,83 @@
   <title>我的優惠券</title>
   <meta name="theme-color" content="#06c755" />
   <style>
-    html,body{height:100%}body{margin:0;font-family:ui-sans-serif,-apple-system,'Noto Sans TC',Arial;background:#fff}
-    .container{max-width:680px;margin:0 auto;padding:16px}
-    .title{font-weight:800;font-size:20px;margin:6px 0 12px}
-    .card{border:1px solid #e5e7eb;border-radius:14px;padding:14px;margin:10px 0}
-    .card h3{margin:0 0 6px;font-size:16px}
-    .muted{color:#6b7280;font-size:13px}
-    .btn{display:inline-block;background:#06c755;color:#fff;font-weight:700;border-radius:10px;padding:10px 14px;text-decoration:none;margin-top:10px}
-    .tag{display:inline-block;background:#eefbf4;color:#059669;border-radius:999px;padding:2px 8px;font-size:12px;margin-left:6px}
-    .empty{padding:40px 16px;text-align:center;color:#9ca3af}
-    .topbar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid #f3f4f6}
-    .brand{font-weight:800}
-    .spacer{flex:1}
-    .filter{font-size:13px;color:#6b7280}
+    :root { --brand:#06c755; --text:#111827; --muted:#6b7280; --bg:#ffffff; --card:#f8fafc; }
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);font-family:ui-sans-serif,-apple-system,'Noto Sans TC',Arial}
+    .wrap{max-width:720px;margin:0 auto;padding:20px}
+    .header{display:flex;align-items:center;gap:10px;margin:6px 0 14px}
+    .dot{width:10px;height:10px;border-radius:50%;background:var(--brand)}
+    h1{font-size:20px;margin:0;color:var(--text)}
+    p.muted{color:var(--muted);margin:0 0 16px}
+    .list{display:grid;grid-template-columns:1fr;gap:12px}
+    .card{background:var(--card);border-radius:14px;padding:14px 16px}
+    .title{font-weight:700;margin:0 0 6px}
+    .desc{color:var(--muted);margin:0 0 10px}
+    .btn{display:inline-block;padding:10px 14px;border-radius:10px;background:var(--brand);color:#fff;text-decoration:none;font-weight:700}
+    .empty{color:var(--muted);text-align:center;padding:30px}
+    @media (min-width:600px){ .list{grid-template-columns:1fr 1fr} }
   </style>
 </head>
 <body>
-  <div class="topbar">
-    <div class="brand">太乙堂｜我的優惠券</div>
-    <div class="spacer"></div>
-    <div class="filter" id="welcome"></div>
+  <div class="wrap">
+    <div class="header"><span class="dot"></span><h1>我的優惠券</h1></div>
+    <p class="muted">以下為此帳號提供的可用優惠券連結。</p>
+    <div id="list" class="list"></div>
+    <div id="empty" class="empty" style="display:none">目前沒有可顯示的優惠券。</div>
   </div>
 
-  <div class="container">
-    <div class="title">可使用的優惠券</div>
-    <div id="list"></div>
-    <div id="empty" class="empty" style="display:none">目前沒有可顯示的優惠券</div>
-  </div>
-
+  <!-- LIFF SDK 可選，但用來在 LINE 內開外部視窗比較穩定 -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
-    // ① 你的 LIFF ID（也可用 ?liffId=... 覆蓋）
-    let LIFF_ID = "2008228314-bRlag6ZR";
-    const u = new URL(location.href);
-    if (u.searchParams.get('liffId')) LIFF_ID = u.searchParams.get('liffId');
-
-    // ② 這裡維護你的券清單（分享網址貼進 url）
-    //   title：券名；desc：簡述；url：LINE 後台「分享網址」；until：到期日(YYYY-MM-DD，可省略)
+    // ① 券清單（之後你只改這裡就好）
     const COUPONS = [
-      // 範例：
-      // { title: "10月來店禮 50 元折抵", desc: "全館可用，滿 200 可折", url: "https://line.me/R/...", until: "2025-10-31" },
-      // { title: "新朋友見面禮 100 元", desc: "限首次使用", url: "https://line.me/R/..." }
+      { title: "太乙堂優惠券 A", desc: "點我查看與使用方式", url: "https://lin.ee/GVSLMKJ" },
+      { title: "太乙堂優惠券 B", desc: "點我查看與使用方式", url: "https://lin.ee/vWSCj0L" }
     ];
 
-    function fmtDate(d){ return d.toISOString().slice(0,10); }
+    // ②（可選）手動覆蓋 LIFF ID：?liffId=xxxx
+    let LIFF_ID = new URL(location.href).searchParams.get('liffId') || "";
 
-    function render(list){
-      const $list = document.getElementById('list');
-      const $empty = document.getElementById('empty');
-      $list.innerHTML = '';
-      if (!list.length){
-        $empty.style.display = 'block';
-        return;
-      }
-      $empty.style.display = 'none';
-
-      list.forEach(c => {
+    // ③ 建立卡片
+    const $list = document.getElementById('list');
+    const $empty = document.getElementById('empty');
+    function render(){
+      if (!COUPONS.length){ $empty.style.display='block'; return; }
+      COUPONS.forEach(c=>{
         const card = document.createElement('div');
         card.className = 'card';
-        const untilTag = c.until ? `<span class="tag">至 ${c.until}</span>` : '';
         card.innerHTML = `
-          <h3>${c.title}${untilTag}</h3>
-          <div class="muted">${c.desc ? c.desc : ''}</div>
-          <a class="btn" href="#">立即查看</a>
+          <div class="title">${c.title}</div>
+          <div class="desc">${c.desc || ''}</div>
+          <a class="btn" href="#">前往查看</a>
         `;
-        const btn = card.querySelector('.btn');
-        btn.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          // 在 LINE 內就內開；外部瀏覽器就開新分頁
-          try {
-            if (window.liff && liff.isInClient()) {
-              liff.openWindow({ url: c.url, external: false });
-            } else {
-              window.open(c.url, '_blank', 'noopener,noreferrer');
-            }
-          } catch (_){
-            window.location.href = c.url;
-          }
+        card.querySelector('.btn').addEventListener('click', (e)=>{
+          e.preventDefault();
+          openUrl(c.url);
         });
         $list.appendChild(card);
       });
     }
 
-    (async () => {
-      // 顯示使用者稱呼（若能拿到 profile）
-      const $welcome = document.getElementById('welcome');
-      try {
-        await liff.init({ liffId: LIFF_ID });
-        if (liff.isLoggedIn()){
-          try {
-            const p = await liff.getProfile();
-            if (p && p.displayName) $welcome.textContent = `嗨，${p.displayName}`;
-          } catch(_){}
-        } else {
-          // 不強迫登入：純展示券清單也能看
+    // ④ 在 LINE 內用 liff.openWindow 導外；外部瀏覽器就直接跳轉
+    function openUrl(url){
+      try{
+        if (window.liff && liff.isInClient()){
+          liff.openWindow({ url, external: true });
+        }else{
+          location.href = url;
         }
-      } catch(_){ /* 忽略 LIFF 初始化錯誤，仍可展示清單 */ }
+      }catch(_){
+        location.href = url;
+      }
+    }
 
-      // 預設只顯示「尚未過期」的券；沒有 until 的視為長效
-      const today = fmtDate(new Date());
-      const valid = COUPONS.filter(c => !c.until || c.until >= today);
-      render(valid);
+    // ⑤（可選）初始化 LIFF（如果沒傳 liffId 也沒關係，照樣能用）
+    (async ()=>{
+      try{
+        if (LIFF_ID) await liff.init({ liffId: LIFF_ID });
+      }catch(_){}
+      render();
     })();
   </script>
 </body>
