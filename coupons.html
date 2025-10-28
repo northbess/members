@@ -1,56 +1,47 @@
 <!doctype html>
 <html lang="zh-Hant">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>我的專屬連結</title>
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<style>
-  body{font-family:system-ui,'Noto Sans TC',sans-serif;margin:16px;background:#fcf5e5}
-  .box{max-width:520px;margin:auto}
-  .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px}
-  .muted{color:#6b7280}
-</style>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>我的專屬連結</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body{font-family:-apple-system,system-ui,"Noto Sans TC","Segoe UI",Roboto,"PingFang TC","Microsoft JhengHei",sans-serif;margin:16px}
+    .muted{color:#666;font-size:14px}
+  </style>
+</head>
 <body>
-<div class="box">
-  <h2 style="color:#4186b7">我的專屬連結</h2>
-  <div class="card">
-    <p id="msg">初始化中…</p>
-  </div>
-</div>
+  <p id="msg">讀取中…</p>
+  <script>
+  (async function(){
+    const LIFF_ID = '2008228314-VaawW8JM';                             // ← 改這裡（像 165xxxx-xxxxxx）
+    const API_URL = 'https://script.google.com/macros/s/AKfycbz6HmtsSr1Zz00_itkzh4T5zjhOIKxnwjHzxvoGPmeRYqNmyooVLb6HiRIRrTQWoutN/exec';                        // ← 改這裡（像 https://script.google.com/macros/s/AKfycb.../exec）
+    const msg = document.getElementById('msg');
 
-<script>
-(function(){
-  // TODO: 換成你的設定
-  var LIFF_ID   = '2008228314-VaawW8JM'; // 你的 LIFF ID（有短橫）
-  var GAS_EXEC  = 'https://script.google.com/macros/s/AKfycbz6HmtsSr1Zz00_itkzh4T5zjhOIKxnwjHzxvoGPmeRYqNmyooVLb6HiRIRrTQWoutN/exec'; // 你的最新 /exec
+    try{
+      await liff.init({ liffId: LIFF_ID });
+      // 必須在 LINE App 內，且要拿 openid 才會有 id_token
+      if (!liff.isLoggedIn()) {
+        liff.login({ scope: ['openid','profile'] });
+        return;
+      }
+      const idt = liff.getIDToken();
+      if (!idt) { msg.textContent = '取得 id_token 失敗，請在 LINE App 內開啟重試。'; return; }
 
-  function qs(obj){
-    var s=[],k; for(k in obj){ if(obj.hasOwnProperty(k)&&obj[k]!=null){
-      s.push(encodeURIComponent(k)+'='+encodeURIComponent(obj[k]));
-    }} return s.join('&');
-  }
-  function setMsg(t){ document.getElementById('msg').textContent = t; }
+      const url = API_URL + '?fn=li_my_link&id_token=' + encodeURIComponent(idt);
+      const res = await fetch(url, { method:'GET' });
+      const j = await res.json();
 
-  liff.init({ liffId: LIFF_ID }).then(function(){
-    if(!liff.isLoggedIn()){ liff.login(); return; }
-    setMsg('讀取連結中…');
-    var idt = liff.getIDToken();
-    if(!idt){ setMsg('取得 id_token 失敗'); return; }
+      if (!j || !j.ok) { msg.textContent = '查詢失敗：' + (j && j.error || 'unknown'); return; }
+      if (!j.url) { msg.textContent = '目前未設定你的專屬連結（couponUrl），請洽客服。'; return; }
 
-    var url = GAS_EXEC + '?' + qs({ fn:'li_my_link', id_token: idt });
-    return fetch(url, { method:'GET' })
-      .then(function(r){ return r.json(); })
-      .then(function(j){
-        if(!j || !j.ok){ setMsg('查詢失敗：'+(j && (j.error||'') || '')); return; }
-        if(!j.url){ setMsg('目前沒有您的生日優惠，我們將於生日當月發放優惠券'); return; }
-        location.href = j.url; // ← 直接導向該用戶的 couponUrl
-      });
-  }).catch(function(err){
-    setMsg('LIFF/網路錯誤：' + err);
-  });
-})();
-</script>
+      // 一切正常 → 直接導向你的個人 couponUrl
+      location.href = j.url;
+    }catch(err){
+      msg.textContent = 'LIFF/網路錯誤：' + err;
+    }
+  })();
+  </script>
+  <p class="muted">請務必在 LINE App 內開啟此頁。</p>
 </body>
 </html>
-
-
