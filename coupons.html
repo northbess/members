@@ -1,90 +1,54 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>我的優惠券</title>
-  <meta name="theme-color" content="#06c755" />
-  <style>
-    :root { --brand:#06c755; --text:#111827; --muted:#6b7280; --bg:#ffffff; --card:#f8fafc; }
-    html,body{height:100%}
-    body{margin:0;background:var(--bg);font-family:ui-sans-serif,-apple-system,'Noto Sans TC',Arial}
-    .wrap{max-width:720px;margin:0 auto;padding:20px}
-    .header{display:flex;align-items:center;gap:10px;margin:6px 0 14px}
-    .dot{width:10px;height:10px;border-radius:50%;background:var(--brand)}
-    h1{font-size:20px;margin:0;color:var(--text)}
-    p.muted{color:var(--muted);margin:0 0 16px}
-    .list{display:grid;grid-template-columns:1fr;gap:12px}
-    .card{background:var(--card);border-radius:14px;padding:14px 16px}
-    .title{font-weight:700;margin:0 0 6px}
-    .desc{color:var(--muted);margin:0 0 10px}
-    .btn{display:inline-block;padding:10px 14px;border-radius:10px;background:var(--brand);color:#fff;text-decoration:none;font-weight:700}
-    .empty{color:var(--muted);text-align:center;padding:30px}
-    @media (min-width:600px){ .list{grid-template-columns:1fr 1fr} }
-  </style>
-</head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的專屬連結</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  body{font-family:system-ui,'Noto Sans TC',sans-serif;margin:16px;background:#fcf5e5}
+  .box{max-width:520px;margin:auto}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px}
+  .muted{color:#6b7280}
+</style>
 <body>
-  <div class="wrap">
-    <div class="header"><span class="dot"></span><h1>我的優惠券</h1></div>
-    <p class="muted">以下為此帳號提供的可用優惠券連結。</p>
-    <div id="list" class="list"></div>
-    <div id="empty" class="empty" style="display:none">目前沒有可顯示的優惠券。</div>
+<div class="box">
+  <h2 style="color:#4186b7">我的專屬連結</h2>
+  <div class="card">
+    <p id="msg">初始化中…</p>
   </div>
+</div>
 
-  <!-- LIFF SDK 可選，但用來在 LINE 內開外部視窗比較穩定 -->
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script>
-    // ① 券清單（之後你只改這裡就好）
-    const COUPONS = [
-      { title: "生日好禮兌換券", desc: "點我查看與使用方式", url: "https://lin.ee/GVSLMKJ" },
-      { title: "生日優惠券", desc: "點我查看與使用方式", url: "https://lin.ee/vWSCj0L" }
-    ];
+<script>
+(function(){
+  // TODO: 換成你的設定
+  var LIFF_ID   = '2008369893-8PqQjMVA'; // 你的 LIFF ID（有短橫）
+  var GAS_EXEC  = 'https://script.google.com/macros/s/AKfycbz6HmtsSr1Zz00_itkzh4T5zjhOIKxnwjHzxvoGPmeRYqNmyooVLb6HiRIRrTQWoutN/exec'; // 你的最新 /exec
 
-    // ②（可選）手動覆蓋 LIFF ID：?liffId=xxxx
-    let LIFF_ID = new URL(location.href).searchParams.get('liffId') || "";
+  function qs(obj){
+    var s=[],k; for(k in obj){ if(obj.hasOwnProperty(k)&&obj[k]!=null){
+      s.push(encodeURIComponent(k)+'='+encodeURIComponent(obj[k]));
+    }} return s.join('&');
+  }
+  function setMsg(t){ document.getElementById('msg').textContent = t; }
 
-    // ③ 建立卡片
-    const $list = document.getElementById('list');
-    const $empty = document.getElementById('empty');
-    function render(){
-      if (!COUPONS.length){ $empty.style.display='block'; return; }
-      COUPONS.forEach(c=>{
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <div class="title">${c.title}</div>
-          <div class="desc">${c.desc || ''}</div>
-          <a class="btn" href="#">前往查看</a>
-        `;
-        card.querySelector('.btn').addEventListener('click', (e)=>{
-          e.preventDefault();
-          openUrl(c.url);
-        });
-        $list.appendChild(card);
+  liff.init({ liffId: LIFF_ID }).then(function(){
+    if(!liff.isLoggedIn()){ liff.login(); return; }
+    setMsg('讀取連結中…');
+    var idt = liff.getIDToken();
+    if(!idt){ setMsg('取得 id_token 失敗'); return; }
+
+    var url = GAS_EXEC + '?' + qs({ fn:'li_my_link', id_token: idt });
+    return fetch(url, { method:'GET' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if(!j || !j.ok){ setMsg('查詢失敗：'+(j && (j.error||'') || '')); return; }
+        if(!j.url){ setMsg('目前未設定你的專屬連結，請洽客服。'); return; }
+        location.href = j.url; // ← 直接導向該用戶的 couponUrl
       });
-    }
-
-    // ④ 在 LINE 內用 liff.openWindow 導外；外部瀏覽器就直接跳轉
-    function openUrl(url){
-      try{
-        if (window.liff && liff.isInClient()){
-          liff.openWindow({ url, external: true });
-        }else{
-          location.href = url;
-        }
-      }catch(_){
-        location.href = url;
-      }
-    }
-
-    // ⑤（可選）初始化 LIFF（如果沒傳 liffId 也沒關係，照樣能用）
-    (async ()=>{
-      try{
-        if (LIFF_ID) await liff.init({ liffId: LIFF_ID });
-      }catch(_){}
-      render();
-    })();
-  </script>
+  }).catch(function(err){
+    setMsg('LIFF/網路錯誤：' + err);
+  });
+})();
+</script>
 </body>
 </html>
-
