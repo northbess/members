@@ -33,7 +33,7 @@
       const j = await res.json();
 
       if (!j || !j.ok) { msg.textContent = '查詢失敗：' + (j && j.error || 'unknown'); return; }
-      if (!j.url) { msg.textContent = '目前未設定你的專屬連結（couponUrl），請洽客服。'; return; }
+      if (!j.url) { msg.textContent = '目前尚未發放優惠券，您可於生日當月領取'; return; }
 
       // 一切正常 → 直接導向你的個人 couponUrl
       location.href = j.url;
@@ -45,5 +45,6 @@
   <p class="muted">請務必在 LINE App 內開啟此頁。</p>
 </body>
 </html>
+
 
 
