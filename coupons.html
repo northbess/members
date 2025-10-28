@@ -42,7 +42,7 @@
       .then(function(r){ return r.json(); })
       .then(function(j){
         if(!j || !j.ok){ setMsg('查詢失敗：'+(j && (j.error||'') || '')); return; }
-        if(!j.url){ setMsg('目前未設定你的專屬連結，請洽客服。'); return; }
+        if(!j.url){ setMsg('目前沒有您的生日優惠，我們將於生日當月發放優惠券'); return; }
         location.href = j.url; // ← 直接導向該用戶的 couponUrl
       });
   }).catch(function(err){
@@ -52,4 +52,5 @@
 </script>
 </body>
 </html>
+
 
