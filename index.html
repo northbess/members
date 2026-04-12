@@ -104,38 +104,32 @@
 // 成功格式：bind ok: Uxxxxxxxx
 if (/bind ok:\s*U/i.test(text)) {
 
-  $('#title').textContent = '綁定成功 🎉';
-  $('#msg').style.display = 'block';
-
-  let sent = false;
-
+  // ✅ 只有在 LINE App 裡才送訊息（避免報錯）
   if (liff.isInClient()) {
     try {
       await liff.sendMessages([
-        { type: 'text', text: '啟用會員服務' }
+        { type: 'text', text: '我要啟用專屬會員權益' }
       ]);
-      sent = true;
     } catch (e) {
       console.log('sendMessages failed:', e);
     }
   }
 
-  if (sent) {
-    $('#msg').innerHTML = '已啟用會員服務，請稍候...';
+  // ✅ 顯示成功訊息
+  $('#title').textContent = '綁定成功 🎉';
+  $('#msg').style.display = 'block';
 
-    setTimeout(() => {
+  // ✅ 延遲關閉
+  setTimeout(() => {
+    if (liff.isInClient()) {
       liff.closeWindow();
-    }, 2500);
-
-  } else {
-    // fallback（很關鍵）
-    $('#msg').innerHTML = `
-      <div style="margin-bottom:10px">請點擊啟用會員服務</div>
-      <button class="btn" onclick="sendHello()">啟用</button>
-    `;
-  }
+    } else {
+      location.href = deepLink();
+    }
+  }, 1500);
 
   return;
+
 } else {
   return showError('綁定未成功', text || '請稍後再試');
 }
