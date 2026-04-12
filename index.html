@@ -101,36 +101,41 @@
         });
         const text = await res.text();
 
-     // 成功格式：bind ok: Uxxxxxxxx
+// 成功格式：bind ok: Uxxxxxxxx
 if (/bind ok:\s*U/i.test(text)) {
 
-  // ✅ 只有在 LINE App 裡才送訊息（避免報錯）
+  $('#title').textContent = '綁定成功 🎉';
+  $('#msg').style.display = 'block';
+
+  let sent = false;
+
   if (liff.isInClient()) {
     try {
       await liff.sendMessages([
         { type: 'text', text: '啟用會員服務' }
       ]);
+      sent = true;
     } catch (e) {
       console.log('sendMessages failed:', e);
     }
   }
 
-  // ✅ 顯示成功訊息
-  $('#title').textContent = '綁定成功 🎉';
-  $('#msg').style.display = 'block';
-  $('#msg').innerHTML = '已啟用會員服務，您現在可以開始使用功能';
+  if (sent) {
+    $('#msg').innerHTML = '已啟用會員服務，請稍候...';
 
-  // ✅ 延遲關閉
-  setTimeout(() => {
-    if (liff.isInClient()) {
+    setTimeout(() => {
       liff.closeWindow();
-    } else {
-      location.href = deepLink();
-    }
-  }, 1500);
+    }, 2500);
+
+  } else {
+    // fallback（很關鍵）
+    $('#msg').innerHTML = `
+      <div style="margin-bottom:10px">請點擊啟用會員服務</div>
+      <button class="btn" onclick="sendHello()">啟用</button>
+    `;
+  }
 
   return;
-
 } else {
   return showError('綁定未成功', text || '請稍後再試');
 }
