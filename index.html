@@ -101,17 +101,39 @@
         });
         const text = await res.text();
 
-        // 成功格式：bind ok: Uxxxxxxxx
-        if (/bind ok:\s*U/i.test(text)) {
-          // 綁定成功 → 關窗/回到聊天
-          if (liff.isInClient()) {
-            return liff.closeWindow();
-          } else {
-            return location.href = deepLink();
-          }
-        } else {
-          return showError('綁定未成功', text || '請稍後再試');
-        }
+     // 成功格式：bind ok: Uxxxxxxxx
+if (/bind ok:\s*U/i.test(text)) {
+
+  // ✅ 只有在 LINE App 裡才送訊息（避免報錯）
+  if (liff.isInClient()) {
+    try {
+      await liff.sendMessages([
+        { type: 'text', text: '啟用會員服務' }
+      ]);
+    } catch (e) {
+      console.log('sendMessages failed:', e);
+    }
+  }
+
+  // ✅ 顯示成功訊息
+  $('#title').textContent = '綁定成功 🎉';
+  $('#msg').style.display = 'block';
+  $('#msg').innerHTML = '已啟用會員服務，您現在可以開始使用功能';
+
+  // ✅ 延遲關閉
+  setTimeout(() => {
+    if (liff.isInClient()) {
+      liff.closeWindow();
+    } else {
+      location.href = deepLink();
+    }
+  }, 1500);
+
+  return;
+
+} else {
+  return showError('綁定未成功', text || '請稍後再試');
+}
       } catch (err) {
         return showError('綁定發生錯誤', String(err), true);
       }
