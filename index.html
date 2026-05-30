@@ -75,7 +75,7 @@ const showLoading = (on) => {
         showLoading(true);
 
         // 初始化 LIFF
-        await liff.init({ liffId: LIFF_ID });
+        await liff.init({ liffId: LIFF_ID });alert('LIFF init OK');
 
         // 未登入就先登入（回到同頁）
         if (!liff.isLoggedIn()) {
