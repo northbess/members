@@ -93,16 +93,18 @@ const showLoading = (on) => {
           return showError('無法取得授權資訊', '請關閉並改由 LINE 選單開啟');
         }
 
-        // 呼叫 GAS 綁定
-        const form = new URLSearchParams();
-        form.set('bind','1');
-        form.set('id_token', token);
-        const res = await fetch(GAS_EXEC + '?bind=1', {
-          method:'POST',
-          headers:{'Content-Type':'application/x-www-form-urlencoded'},
-          body: form.toString()
-        });
-        const text = await res.text();
+// 呼叫 GAS 綁定：改用 GET，避免 LIFF WebView / CORS / redirect 問題
+const bindUrl =
+  GAS_EXEC +
+  '?bind=1&id_token=' +
+  encodeURIComponent(token);
+
+const res = await fetch(bindUrl, {
+  method: 'GET'
+});
+
+const text = await res.text();
+alert('GAS 回傳：' + text);
 
 // 成功格式：bind ok: Uxxxxxxxx
 if (/bind ok:\s*U/i.test(text)) {
