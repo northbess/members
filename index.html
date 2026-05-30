@@ -49,12 +49,15 @@
     // ===== 小工具 =====
     const $ = s => document.querySelector(s);
     const deepLink = () => 'https://liff.line.me/' + encodeURIComponent(LIFF_ID) + location.search;
-    const showLoading = (on) => {
-      $('#ring').style.display = on ? 'block' : 'none';
-      $('#start').style.display = on ? 'none' : 'inline-block';
-      $('#msg').style.display = 'none';
-      $('#fallback').style.display = 'none';
-    };
+const showLoading = (on) => {
+  $('#ring').style.display = on ? 'block' : 'none';
+  $('#start').style.display = on ? 'none' : 'inline-block';
+
+  if (on) {
+    $('#msg').style.display = 'none';
+    $('#fallback').style.display = 'none';
+  }
+};
     const showError = (title, msg, withDeepLink) => {
       $('#title').textContent = title;
       $('#msg').style.display = 'block';
@@ -133,9 +136,22 @@ if (/bind ok:\s*U/i.test(text)) {
 } else {
   return showError('綁定未成功', text || '請稍後再試');
 }
-      } catch (err) {
-        return showError('綁定發生錯誤', String(err), true);
-      }
+} catch (err) {
+
+  console.error(err);
+
+  alert(
+    typeof err === 'object'
+      ? JSON.stringify(err)
+      : String(err)
+  );
+
+  return showError(
+    '綁定發生錯誤',
+    String(err),
+    true
+  );
+}
     }
 
     // 首頁不顯示任何「處理中」字樣，只提供明確「開始綁定」按鈕
