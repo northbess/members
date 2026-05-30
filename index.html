@@ -105,7 +105,6 @@ const res = await fetch(bindUrl, {
 });
 
 const text = await res.text();
-alert('GAS 回傳：' + text);
 
 // 成功格式：bind ok: Uxxxxxxxx
 if (/bind ok:\s*U/i.test(text)) {
