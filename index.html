@@ -142,12 +142,6 @@ if (/bind ok:\s*U/i.test(text)) {
 
   console.error(err);
 
-  alert(
-    typeof err === 'object'
-      ? JSON.stringify(err)
-      : String(err)
-  );
-
   return showError(
     '綁定發生錯誤',
     String(err),
